@@ -102,36 +102,36 @@ namespace TrabajoFinalRestaurante.Repository
 
         }
 
+
         public async Task<List<TurnoLibreResult>> TurnosSinCuposRepository()
         {
             DateTime fechaActual = DateTime.Now;
             DateTime fechaLimite = fechaActual.AddDays(7);
 
-            var turnosSinLugaresLibres = await _restaurantContext.RangoReservas
-                .Where(r => _restaurantContext.Reservas
-                    .Where(res => res.FechaReserva.Date >= fechaActual.Date && res.FechaReserva.Date <= fechaLimite.Date && res.Estado == "CONFIRMADO" && r.IdRangoReserva == res.IdRangoReserva)
-                    .GroupBy(res => res.FechaReserva)
-                    .Any(g => r.Cupo - g.Sum(res => res.CantidadPersonas) == 0))
-                .Select(r => new TurnoLibreResult
-                {
-                    IdRangoReserva = r.IdRangoReserva,
-                    DescripcionRango = r.Descripcion,
-                    FechaReserva = _restaurantContext.Reservas
-                        .Where(res => res.FechaReserva.Date >= fechaActual.Date && res.FechaReserva.Date <= fechaLimite.Date && res.Estado == "CONFIRMADO" && res.IdRangoReserva == r.IdRangoReserva)
-                        .Select(res => res.FechaReserva)
-                        .FirstOrDefault(),
-                    CupoTotal = r.Cupo,
-                    CupoOcupado = _restaurantContext.Reservas
-                        .Where(res => res.FechaReserva.Date >= fechaActual.Date && res.FechaReserva.Date <= fechaLimite.Date && res.Estado == "CONFIRMADO" && res.IdRangoReserva == r.IdRangoReserva)
-                        .Sum(res => res.CantidadPersonas),
-                    LugaresLibres = 0 // Aquí se establece como 0 ya que estos turnos están completamente ocupados
-                })
+            var turnosLibresPorFecha = await _restaurantContext.RangoReservas
+                .SelectMany(rango => _restaurantContext.Reservas
+                    .Where(reserva =>
+                        reserva.FechaReserva.Date >= fechaActual.Date &&
+                        reserva.FechaReserva.Date <= fechaLimite.Date &&
+                        reserva.Estado == "CONFIRMADO" &&
+                        reserva.IdRangoReserva == rango.IdRangoReserva)
+                    .GroupBy(reserva => reserva.FechaReserva.Date)
+                    .Where(grp => rango.Cupo - grp.Sum(res => res.CantidadPersonas) == 0)
+                    .Select(grp => new TurnoLibreResult
+                    {
+                        FechaReserva = grp.Key,
+                        IdRangoReserva = rango.IdRangoReserva,
+                        DescripcionRango = rango.Descripcion,
+                        CupoTotal = rango.Cupo,
+                        CupoOcupado = grp.Sum(res => res.CantidadPersonas),
+                        LugaresLibres = 0 
+                    }))
                 .ToListAsync();
 
-            return turnosSinLugaresLibres;
+            return turnosLibresPorFecha;
         }
-        rn turnosSinLugaresLibres;
-        }
+
+
 
 
 
